@@ -202,35 +202,35 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection) -> Dict[str, List]:
 
 if __name__ == "__main__":
     conn = duckdb.connect()
-    # graph = build_graph_cycle(conn)
+    graph = build_graph_cycle(conn)
     
     # cycles stores all detected cycles; discovered_transactions stores all sender_ids part of a cycle to avoid re-checking
-    # cycles = []
-    # discovered_transactions = set()
+    cycles = []
+    discovered_transactions = set()
 
-    # for sender_id, transactions in tqdm(graph.items(), "Going through potential cycle starters"):
-    #     if sender_id not in discovered_transactions:
-    #         discovered_transactions.add(sender_id)
-    #         cycle = trace_cycles(graph, transactions[0]['Receiver_account'], sender_id, float(transactions[0]['Amount']),
-    #                              {sender_id}, [transactions[0]], transactions[0]['Date'], transactions[0]['Time'])
+    for sender_id, transactions in tqdm(graph.items(), "Going through potential cycle starters"):
+        if sender_id not in discovered_transactions:
+            discovered_transactions.add(sender_id)
+            cycle = trace_cycles(graph, transactions[0]['Receiver_account'], sender_id, float(transactions[0]['Amount']),
+                                 {sender_id}, [transactions[0]], transactions[0]['Date'], transactions[0]['Time'])
 
-    #         if cycle:
-    #             print(
-    #                 f"CYCLE FOUND: {cycle[0]['Sender_account']} -> ... -> {cycle[-1]['Receiver_account']} \
-    #                     of length {len(cycle)}")
-    #             cycles.append(cycle)
+            if cycle:
+                print(
+                    f"CYCLE FOUND: {cycle[0]['Sender_account']} -> ... -> {cycle[-1]['Receiver_account']} \
+                        of length {len(cycle)}")
+                cycles.append(cycle)
 
-    #             for tx in cycle:
-    #                 discovered_transactions.add(tx['Sender_account'])
+                for tx in cycle:
+                    discovered_transactions.add(tx['Sender_account'])
                 
 
-    # print(f"Total cycles found: {len(cycles)}")
-    # write_cycles_to_csv(cycles)
+    print(f"Total cycles found: {len(cycles)}")
+    write_cycles_to_csv(cycles)
 
-    # del graph
-    # del discovered_transactions
-    # del cycles
-    # gc.collect()
+    del graph
+    del discovered_transactions
+    del cycles
+    gc.collect()
 
     detect_smurfing_suspects(conn)
     conn.close()
