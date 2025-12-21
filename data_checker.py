@@ -5,11 +5,9 @@ from duckdb import DuckDBPyConnection
 from tqdm import tqdm
 from halo import Halo
 import pandas as pd
-from pyspark.sql.types import *
-from pyspark.sql.functions import *
 
 
-def trace_cycles(transactions: Dict[str, List], current_account: str, start_account: str, start_amount: float, 
+def trace_cycles(transactions: Dict[str, List], current_account: str, start_account: str, start_amount: float,
                  visited_accounts: Set, path: List[Dict], tx_date: str, tx_time: str, max_depth: int = 100) -> List[Dict]:
     """
     Docstring for trace_cycles
@@ -45,14 +43,14 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
             next_amount = float(next_transaction['Amount'])
 
             if next_receiver != start_account and next_receiver in visited_accounts:
-                continue # Skip this hop, go to the next transaction in all_hops
+                continue  # Skip this hop, go to the next transaction in all_hops
 
             # Success Case: Cycle detected, transactions appended, end recursion
             if next_receiver == start_account and len(new_path) > 2:
                 twenty_of_start_amount = (start_amount * 0.20)
                 start_amount_twenty_plus = start_amount + twenty_of_start_amount
                 start_amount_twenty_minus = start_amount - twenty_of_start_amount
-                
+
                 if start_amount_twenty_minus <= next_amount <= start_amount_twenty_plus:
                     return new_path
                 else:
@@ -66,7 +64,7 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
                 return result
 
 
-def build_graph_cycle(conn: DuckDBPyConnection) -> Dict[str, List]:
+def build_graph_cycle(conn: DuckDBPyConnection, source_file: str = "./data/SAML-D.csv") -> Dict[str, List]:
     """
     Docstring for build_graph
     This function queries the relevant CSV using DuckDB to get all transactions' data. It then builds
@@ -81,40 +79,42 @@ def build_graph_cycle(conn: DuckDBPyConnection) -> Dict[str, List]:
     spinner.start()
     # Retrieve all necessary transaction data from csv
     full_data_query = \
-        """
-        SELECT Sender_account, list({
+        f"""
+        SELECT Sender_account, list({{
                                     'Date': Date,
                                     'Time': Time, 
                                     'Sender_account': Sender_account,
                                     'Receiver_account': Receiver_account, 
                                     'Amount': Amount, 
-                                    'Laundering_type': Laundering_type} ORDER BY Date ASC, Time ASC) as transactions
-        FROM './SAML-D.csv'
+                                    'Laundering_type': Laundering_type}} ORDER BY Date ASC, Time ASC) as transactions
+        FROM '{ source_file }'
         GROUP BY Sender_account;
     """
 
     data = conn.execute(full_data_query).fetchall()
-    
+
     spinner.succeed("Retrieved data from CSV")
 
-    spinner = Halo("Converting the data to a graph format...", "yellow", spinner="dots12")
+    spinner = Halo("Converting the data to a graph format...",
+                   "yellow", spinner="dots12")
     spinner.start()
 
     full_graph: Dict[str, List] = {
         Sender_account: transactions for Sender_account, transactions in data
     }
 
-    spinner.succeed(f"Graph built with {len(full_graph)} unique accounts as senders.")
+    spinner.succeed(
+        f"Graph built with {len(full_graph)} unique accounts as senders.")
     return full_graph
 
 
-def write_cycles_to_csv(cycles: List[List[Dict]], output_filename: str = 'detected_cycles.csv'):
+def write_cycles_to_csv(cycles: List[List[Dict]], output_filepath: str = './data/detected_cycles.csv'):
     """
     Flattens the nested cycles data structure and writes it to a CSV file.
 
     Parameters:
     1. cycles (List[List[Dict]]): The list of detected cycles.
-    2. output_filename (str): The name of the file to write the results to.
+    2. output_filepath (str): The name of the file to write the results to.
     """
     if not cycles:
         print("No cycles were detected. Skipping CSV export.")
@@ -142,19 +142,19 @@ def write_cycles_to_csv(cycles: List[List[Dict]], output_filename: str = 'detect
     cycles_df = pd.DataFrame(flattened_data)
 
     # 2. Write the DataFrame to a CSV file
-    cycles_df.to_csv(output_filename, index=False)
+    cycles_df.to_csv(output_filepath, index=False)
 
     spinner.succeed(f"\n✅ Successfully wrote {len(cycles)} cycles "
-          f"({len(flattened_data)} total transactions) to '{output_filename}'")
+                    f"({len(flattened_data)} total transactions) to '{output_filepath}'")
 
 
-def detect_smurfing_suspects(conn: DuckDBPyConnection) -> Dict[str, List]:
-    spinner = Halo(text="Retrieving data from CSV...",
+def detect_smurfing_suspects(conn: DuckDBPyConnection, source_file: str = "./data/SAML-D.csv", output_filepath: str = "./data/smurfing_suspects.csv") -> Dict[str, List]:
+    spinner = Halo(text="Retrieving and processing data from CSV...",
                    color="magenta", spinner="dots2")
     spinner.start()
     # Retrieve all necessary transaction data from csv
     full_data_query = \
-        """
+        f"""
         ;
 
         COPY 
@@ -172,11 +172,10 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection) -> Dict[str, List]:
                 origin.Amount,
                 origin.Laundering_type,
                 origin.Payment_type
-            FROM './SAML-D.csv' AS origin
+            FROM '{ source_file }' AS origin
             JOIN (SELECT Receiver_account, 
                             sum(Amount) AS Total_amount,
                             count(DISTINCT Sender_account) AS Sender_count,
-                            list(Sender_account) AS Senders,
                             date_diff('minute', MIN(Date + Time), MAX(Date + Time)) AS Duration,
                             CASE 
                                 WHEN date_diff('minute', MIN(Date + Time), MAX(Date + Time)) >= 1440 
@@ -185,25 +184,25 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection) -> Dict[str, List]:
                                     THEN date_diff('hour', MIN(Date + Time), MAX(Date + Time)) || ' hours'
                                 ELSE date_diff('minute', MIN(Date + Time), MAX(Date + Time)) || ' minutes'
                             END AS Readable_duration
-                    FROM './SAML-D.csv'
+                    FROM '{ source_file }'
                     WHERE Payment_currency = 'UK pounds' AND Received_currency = 'UK pounds'
                     GROUP BY Receiver_account
                         HAVING Sender_count > 10 AND Duration <= 43200 AND Total_amount > 100000) AS agg
                 ON origin.Receiver_account = agg.Receiver_account
             WHERE Payment_currency = 'UK pounds' AND Received_currency = 'UK pounds'
             ORDER BY origin.Receiver_account ASC, agg.Total_amount ASC, agg.Duration ASC
-            ) TO './smurfing_suspects.csv' (HEADER, DELIMITER ',');
+            ) TO '{ output_filepath }' (HEADER, DELIMITER ',');
     """
 
     conn.execute(full_data_query)
-    
-    spinner.succeed("Retrieved data from CSV")
+
+    spinner.succeed(f"Processed data saved to { output_filepath }")
 
 
 if __name__ == "__main__":
     conn = duckdb.connect()
     graph = build_graph_cycle(conn)
-    
+
     # cycles stores all detected cycles; discovered_transactions stores all sender_ids part of a cycle to avoid re-checking
     cycles = []
     discovered_transactions = set()
@@ -222,7 +221,6 @@ if __name__ == "__main__":
 
                 for tx in cycle:
                     discovered_transactions.add(tx['Sender_account'])
-                
 
     print(f"Total cycles found: {len(cycles)}")
     write_cycles_to_csv(cycles)
