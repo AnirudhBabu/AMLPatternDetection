@@ -7,8 +7,15 @@ from halo import Halo
 import pandas as pd
 
 
-def trace_cycles(transactions: Dict[str, List], current_account: str, start_account: str, start_amount: float,
-                 visited_accounts: Set, path: List[Dict], tx_date: str, tx_time: str, max_depth: int = 100) -> List[Dict]:
+def trace_cycles(transactions: Dict[str, List], 
+                 current_account: str, 
+                 start_account: str, 
+                 start_amount: float,
+                 visited_accounts: Set,
+                 path: List[Dict], 
+                 tx_date: str, 
+                 tx_time: str, 
+                 max_depth: int = 100) -> List[Dict]:
     """
     Docstring for trace_cycles
     This function traverses the transactions graph using a Depth-First-Search (DFS) algorithm to detect a cyclical 
@@ -18,9 +25,12 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
     1. transactions (Dict[str, List]): The graph containing transactions as edges and senders as nodes.
     2. current_account (str): The receiver account of the first transaction; further transactions are searched for using this value.
     3. start_account (str): Sender account of the transaction, which, when matched with the final transaction's receiver, a cycle is formed.
-    4. path (List): Contains all the edges of a traversal.
-    5. tx_date (str): Date of `current_account` transaction.
-    6. tx_time: Time of `current_account` transaction.
+    4. start_amount (float): Starting amount sent -> The final amount received is set to be within 20% of this.
+    5. visited_accounts (Set): A Set of all accounts whose paths have been checked, stored to avoid repetition.
+    6. path (List[Dict]): Contains all the edges of a traversal.
+    7. tx_date (str): Date of `current_account` transaction.
+    8. tx_time (str): Time of `current_account` transaction.
+    9. max_depth (int): The maximum accounts allowed per path -> default is set to 100.
     """
 
     # Failure Base Case = No transactions for this sender in graph
@@ -31,7 +41,6 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
     if len(path) > max_depth:
         return None
 
-    # All transactions sent by the sender
     all_hops = transactions[current_account]
 
     for next_transaction in all_hops:
@@ -43,9 +52,9 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
             next_amount = float(next_transaction['Amount'])
 
             if next_receiver != start_account and next_receiver in visited_accounts:
-                continue  # Skip this hop, go to the next transaction in all_hops
+                continue  # Skip this hop, go to the next transaction in all_hops because this path is already checked
 
-            # Success Case: Cycle detected, transactions appended, end recursion
+            # Success Case: Cycle detected, amount within 20% -> transactions appended, end recursion
             if next_receiver == start_account and len(new_path) > 2:
                 twenty_of_start_amount = (start_amount * 0.20)
                 start_amount_twenty_plus = start_amount + twenty_of_start_amount
@@ -64,7 +73,8 @@ def trace_cycles(transactions: Dict[str, List], current_account: str, start_acco
                 return result
 
 
-def build_graph_cycle(conn: DuckDBPyConnection, source_file: str = "./data/SAML-D.csv") -> Dict[str, List]:
+def build_graph_cycle(conn: DuckDBPyConnection, 
+                      source_file: str = "./data/SAML-D.csv") -> Dict[str, List]:
     """
     Docstring for build_graph
     This function queries the relevant CSV using DuckDB to get all transactions' data. It then builds
@@ -72,12 +82,13 @@ def build_graph_cycle(conn: DuckDBPyConnection, source_file: str = "./data/SAML-
 
     Parameters:
     1. conn (DuckDBPyConnection): The connection object to DuckDB
+    2. source_file (str): The dataset's path
 
     """
     spinner = Halo(text="Retrieving data from CSV...",
                    color="magenta", spinner="dots2")
     spinner.start()
-    # Retrieve all necessary transaction data from csv
+    # Retrieve all necessary transaction data from csv in a format ready for graphs
     full_data_query = \
         f"""
         SELECT Sender_account, list({{
@@ -87,7 +98,7 @@ def build_graph_cycle(conn: DuckDBPyConnection, source_file: str = "./data/SAML-
                                     'Receiver_account': Receiver_account, 
                                     'Amount': Amount, 
                                     'Laundering_type': Laundering_type}} ORDER BY Date ASC, Time ASC) as transactions
-        FROM '{ source_file }'
+        FROM '{source_file}'
         GROUP BY Sender_account;
     """
 
@@ -105,17 +116,21 @@ def build_graph_cycle(conn: DuckDBPyConnection, source_file: str = "./data/SAML-
 
     spinner.succeed(
         f"Graph built with {len(full_graph)} unique accounts as senders.")
+    
     return full_graph
 
 
-def write_cycles_to_csv(cycles: List[List[Dict]], output_filepath: str = './data/detected_cycles.csv'):
+def write_cycles_to_csv(cycles: List[List[Dict]], 
+                        output_filepath: str = './data/detected_cycles.csv'):
     """
+    Docstring for write_cycles_to_csv
     Flattens the nested cycles data structure and writes it to a CSV file.
 
     Parameters:
     1. cycles (List[List[Dict]]): The list of detected cycles.
     2. output_filepath (str): The name of the file to write the results to.
     """
+
     if not cycles:
         print("No cycles were detected. Skipping CSV export.")
         return
@@ -128,10 +143,8 @@ def write_cycles_to_csv(cycles: List[List[Dict]], output_filepath: str = './data
 
     for cycle_index, cycle_path in enumerate(cycles):
         for transaction in cycle_path:
-            # Create a copy of the transaction dictionary
             tx_row = transaction.copy()
 
-            # Add metadata columns to identify the cycle and its position
             tx_row['Cycle_ID'] = cycle_index + 1
             tx_row['Cycle_Length'] = len(cycle_path)
             tx_row['Hop_Number'] = cycle_path.index(transaction) + 1
@@ -148,15 +161,42 @@ def write_cycles_to_csv(cycles: List[List[Dict]], output_filepath: str = './data
                     f"({len(flattened_data)} total transactions) to '{output_filepath}'")
 
 
-def detect_smurfing_suspects(conn: DuckDBPyConnection, source_file: str = "./data/SAML-D.csv", output_filepath: str = "./data/smurfing_suspects.csv") -> Dict[str, List]:
+def detect_smurfing_suspects(conn: DuckDBPyConnection, 
+                             source_file: str = "./data/SAML-D.csv", 
+                             output_filepath: str = "./data/smurfing_suspects.csv",
+                             preferred_sender_currency: str="UK pounds",
+                             preferred_receiver_currency: str="UK pounds",
+                             target_total_threshold: float=100_000,
+                             target_minutes_duration: int=43200,
+                             target_minimum_distinct_senders: int=10):
+    """
+    Docstring for detect_smurfing_suspects
+    This function traverses the original dataset, aggregates it, self-joins it back to the original dataset to return 
+    a list of transactions from multiple senders to a single receiver account over short durations, indicative of the 
+    Smurfing AML typology.
+    
+    Parameters:
+    1. conn (DuckDBPyConnection): Connection object to DuckDB.
+    2. source_file (str): Path to the source dataset.
+    3. output_filepath: Path where the processed data should be stored.
+    4. preferred_sender_currency (str): Preferred value for the Payment_currency column in the dataset.
+    5. preferred_receiver_currency (str): Preferred value for the Received_currency column in the dataset.
+    6. target_total_threshold (float): Amount beyond which the combination of a high number of senders, a short duration
+                                       are considered suspicious.
+    7. target_minutes_duration (int): The duration in minutes considered as one of the factors influencing the suspicious 
+                                      nature of transactions.
+    8. target_minimum_distinct_senders (int): The final factor in the suspicious-ness-deciding trifecta.
+
+    """
+
     spinner = Halo(text="Retrieving and processing data from CSV...",
                    color="magenta", spinner="dots2")
     spinner.start()
-    # Retrieve all necessary transaction data from csv
+
+    # Retrieve all necessary transaction data from csv in an aggregated form with necessary filters,
+    # then self-join to get per transaction data, and finally save it to the desired location
     full_data_query = \
         f"""
-        ;
-
         COPY 
         (
             SELECT 
@@ -172,7 +212,7 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection, source_file: str = "./dat
                 origin.Amount,
                 origin.Laundering_type,
                 origin.Payment_type
-            FROM '{ source_file }' AS origin
+            FROM '{source_file}' AS origin
             JOIN (SELECT Receiver_account, 
                             sum(Amount) AS Total_amount,
                             count(DISTINCT Sender_account) AS Sender_count,
@@ -184,26 +224,27 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection, source_file: str = "./dat
                                     THEN date_diff('hour', MIN(Date + Time), MAX(Date + Time)) || ' hours'
                                 ELSE date_diff('minute', MIN(Date + Time), MAX(Date + Time)) || ' minutes'
                             END AS Readable_duration
-                    FROM '{ source_file }'
-                    WHERE Payment_currency = 'UK pounds' AND Received_currency = 'UK pounds'
+                    FROM '{source_file}'
+                    WHERE Payment_currency = '{preferred_sender_currency}' AND Received_currency = '{preferred_receiver_currency}'
                     GROUP BY Receiver_account
-                        HAVING Sender_count > 10 AND Duration <= 43200 AND Total_amount > 100000) AS agg
+                        HAVING Sender_count > {target_minimum_distinct_senders} AND Duration <= {target_minutes_duration} AND Total_amount > {target_total_threshold}) AS agg
                 ON origin.Receiver_account = agg.Receiver_account
-            WHERE Payment_currency = 'UK pounds' AND Received_currency = 'UK pounds'
+            WHERE Payment_currency = '{preferred_sender_currency}' AND Received_currency = '{preferred_receiver_currency}'
             ORDER BY origin.Receiver_account ASC, agg.Total_amount ASC, agg.Duration ASC
-            ) TO '{ output_filepath }' (HEADER, DELIMITER ',');
-    """
+        ) TO '{output_filepath}' (HEADER, DELIMITER ',');
+        """
 
     conn.execute(full_data_query)
 
-    spinner.succeed(f"Processed data saved to { output_filepath }")
+    spinner.succeed(f"Processed data saved to {output_filepath}")
 
 
 if __name__ == "__main__":
     conn = duckdb.connect()
     graph = build_graph_cycle(conn)
 
-    # cycles stores all detected cycles; discovered_transactions stores all sender_ids part of a cycle to avoid re-checking
+    # cycles stores all detected cycles; 
+    # discovered_transactions stores all sender_ids part of a cycle to avoid re-checking
     cycles = []
     discovered_transactions = set()
 
@@ -225,6 +266,7 @@ if __name__ == "__main__":
     print(f"Total cycles found: {len(cycles)}")
     write_cycles_to_csv(cycles)
 
+    # Memory limitations prevent me from just leaving it to auto garbage collection
     del graph
     del discovered_transactions
     del cycles
