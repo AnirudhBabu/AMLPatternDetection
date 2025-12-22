@@ -44,7 +44,7 @@ This project utilizes the [SAML-D (Synthetic Anti-Money Laundering) dataset from
 
 Citation: B. Oztas, D. Cetinkaya, F. Adedoyin, M. Budka, H. Dogan and G. Aksu, "Enhancing Anti-Money Laundering: Development of a Synthetic Transaction Monitoring Dataset," 2023 IEEE International Conference on e-Business Engineering (ICEBE), Sydney, Australia, 2023, pp. 47-54, doi: 10.1109/ICEBE59045.2023.00028.
 
-How to use
+## How to use
 1. Clone the repo
 2. Download the SAML-D.csv dataset from Kaggle into the data sub-folder 
 3. Python Script: Run the data_checker.py script to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
