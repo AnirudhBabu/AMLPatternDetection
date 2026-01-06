@@ -15,6 +15,8 @@ I pivoted to a DuckDB + DFS approach. The script retrieves transactions into an 
 
 Roadmap: To improve performance and handle deeper "hops" I am currently learning Neo4j to implement it in place of the DFS algorithm. This will replace the manual DFS with native graph query language (Cypher) for faster pattern matching.
 
+Update: Neo4j was a bust since exploring hops basically slowly crushes it over time and none of the plugins seem to help - APOC, GDS, etc. I'm considering this a dead end for now. I went on to try KuzuDB, igraph, and rustworkx but nothing seems to be faster than the current implementation, so that's that.
+
 The Smurfing analysis was unified within a DuckDB query highlighting the versatility and speed that DuckDB offers.
 
 Forensic Visualizations
@@ -46,5 +48,5 @@ Citation: B. Oztas, D. Cetinkaya, F. Adedoyin, M. Budka, H. Dogan and G. Aksu, "
 
 ## How to use
 1. Clone the repo
-2. Python Script: Run the data_checker.py script to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
+2. Python Script: Run the data_checker.py script (if you have enough memory, aka at least 16 GB on your compute, as this DFS requires an in-memory graph of a 9.5M rows dataset) to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
 3. Power BI: Load the generated files into the .pbix file to refresh the Waterfall and Decomposition visuals (Refresh paths using the edit query method on each table for your local PC).
