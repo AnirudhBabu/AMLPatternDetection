@@ -1,21 +1,24 @@
 import gc
+import os
+from pathlib import Path
+import shutil
 import duckdb
 from typing import List, Dict, Set
 from duckdb import DuckDBPyConnection
 from tqdm import tqdm
 from halo import Halo
 import pandas as pd
+import kagglehub as kg
 
 
-def trace_cycles(transactions: Dict[str, List], 
-                 current_account: str, 
-                 start_account: str, 
+def trace_cycles(transactions: Dict[str, List],
+                 current_account: str,
+                 start_account: str,
                  start_amount: float,
                  visited_accounts: Set,
-                 path: List[Dict], 
-                 tx_date: str, 
-                 tx_time: str, 
-                 max_depth: int = 100) -> List[Dict]:
+                 path: List[Dict],
+                 tx_time: pd.Timestamp,
+                 max_depth: int = 20) -> List[Dict]:
     """
     Docstring for trace_cycles
     This function traverses the transactions graph using a Depth-First-Search (DFS) algorithm to detect a cyclical 
@@ -45,8 +48,7 @@ def trace_cycles(transactions: Dict[str, List],
 
     for next_transaction in all_hops:
         # Ensure that the transaction being looked at happened after the current_account's transaction
-        if next_transaction['Date'] > tx_date or \
-           (next_transaction['Date'] == tx_date and next_transaction['Time'] > tx_time):
+        if next_transaction['tx_time'] > tx_time:
             new_path = path + [next_transaction]
             next_receiver = next_transaction['Receiver_account']
             next_amount = float(next_transaction['Amount'])
@@ -67,13 +69,13 @@ def trace_cycles(transactions: Dict[str, List],
             new_visited_accounts = visited_accounts.copy()
             new_visited_accounts.add(current_account)
             result = trace_cycles(
-                transactions, next_receiver, start_account, start_amount, new_visited_accounts, new_path, next_transaction['Date'], next_transaction['Time'])
+                transactions, next_receiver, start_account, start_amount, new_visited_accounts, new_path, next_transaction['tx_time'])
 
             if result:
                 return result
 
 
-def build_graph_cycle(conn: DuckDBPyConnection, 
+def build_graph_cycle(conn: DuckDBPyConnection,
                       source_file: str = "./data/SAML-D.csv") -> Dict[str, List]:
     """
     Docstring for build_graph
@@ -97,7 +99,8 @@ def build_graph_cycle(conn: DuckDBPyConnection,
                                     'Sender_account': Sender_account,
                                     'Receiver_account': Receiver_account, 
                                     'Amount': Amount, 
-                                    'Laundering_type': Laundering_type}} ORDER BY Date ASC, Time ASC) as transactions
+                                    'Laundering_type': Laundering_type,
+                                    'tx_time': (Date::DATE + Time::TIME)::TIMESTAMP}} ORDER BY (Date::DATE + Time::TIME)::TIMESTAMP) as transactions
         FROM '{source_file}'
         GROUP BY Sender_account;
     """
@@ -116,11 +119,11 @@ def build_graph_cycle(conn: DuckDBPyConnection,
 
     spinner.succeed(
         f"Graph built with {len(full_graph)} unique accounts as senders.")
-    
+
     return full_graph
 
 
-def write_cycles_to_csv(cycles: List[List[Dict]], 
+def write_cycles_to_csv(cycles: List[List[Dict]],
                         output_filepath: str = './data/detected_cycles.csv'):
     """
     Docstring for write_cycles_to_csv
@@ -161,20 +164,20 @@ def write_cycles_to_csv(cycles: List[List[Dict]],
                     f"({len(flattened_data)} total transactions) to '{output_filepath}'")
 
 
-def detect_smurfing_suspects(conn: DuckDBPyConnection, 
-                             source_file: str = "./data/SAML-D.csv", 
+def detect_smurfing_suspects(conn: DuckDBPyConnection,
+                             source_file: str = "./data/SAML-D.csv",
                              output_filepath: str = "./data/smurfing_suspects.csv",
-                             preferred_sender_currency: str="UK pounds",
-                             preferred_receiver_currency: str="UK pounds",
-                             target_total_threshold: float=100_000,
-                             target_minutes_duration: int=43200,
-                             target_minimum_distinct_senders: int=10):
+                             preferred_sender_currency: str = "UK pounds",
+                             preferred_receiver_currency: str = "UK pounds",
+                             target_total_threshold: float = 100_000,
+                             target_minutes_duration: int = 43200,
+                             target_minimum_distinct_senders: int = 10):
     """
     Docstring for detect_smurfing_suspects
     This function traverses the original dataset, aggregates it, self-joins it back to the original dataset to return 
     a list of transactions from multiple senders to a single receiver account over short durations, indicative of the 
     Smurfing AML typology.
-    
+
     Parameters:
     1. conn (DuckDBPyConnection): Connection object to DuckDB.
     2. source_file (str): Path to the source dataset.
@@ -240,10 +243,26 @@ def detect_smurfing_suspects(conn: DuckDBPyConnection,
 
 
 if __name__ == "__main__":
+    # Download latest version of dataset if not already downloaded
+    data_path = Path('./data/SAML-D.csv')
+    # Dynamically find the user home directory
+    home_dir = os.path.expanduser("~")
+    cache_path = os.path.join(home_dir, ".cache", "kagglehub", "datasets",
+                              "berkanoztas", "synthetic-transaction-monitoring-dataset-aml")
+
+    if not data_path.is_file():
+        if os.path.exists(cache_path):
+            shutil.rmtree(cache_path)
+            print("Cache cleared")
+
+        path = kg.dataset_download(
+            "berkanoztas/synthetic-transaction-monitoring-dataset-aml")
+        shutil.move(os.path.join(path, 'SAML-D.csv'), './data')
+
     conn = duckdb.connect()
     graph = build_graph_cycle(conn)
 
-    # cycles stores all detected cycles; 
+    # cycles stores all detected cycles;
     # discovered_transactions stores all sender_ids part of a cycle to avoid re-checking
     cycles = []
     discovered_transactions = set()
@@ -252,7 +271,7 @@ if __name__ == "__main__":
         if sender_id not in discovered_transactions:
             discovered_transactions.add(sender_id)
             cycle = trace_cycles(graph, transactions[0]['Receiver_account'], sender_id, float(transactions[0]['Amount']),
-                                 {sender_id}, [transactions[0]], transactions[0]['Date'], transactions[0]['Time'])
+                                 {sender_id}, [transactions[0]], transactions[0]['tx_time'])
 
             if cycle:
                 print(

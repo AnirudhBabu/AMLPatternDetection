@@ -46,6 +46,5 @@ Citation: B. Oztas, D. Cetinkaya, F. Adedoyin, M. Budka, H. Dogan and G. Aksu, "
 
 ## How to use
 1. Clone the repo
-2. Download the SAML-D.csv dataset from Kaggle into the data sub-folder 
-3. Python Script: Run the data_checker.py script to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
-4. Power BI: Load the generated files into the .pbix file to refresh the Waterfall and Decomposition visuals (Refresh paths using the edit query method on each table for your local PC).
+2. Python Script: Run the data_checker.py script to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
+3. Power BI: Load the generated files into the .pbix file to refresh the Waterfall and Decomposition visuals (Refresh paths using the edit query method on each table for your local PC).
