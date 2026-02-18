@@ -1,6 +1,9 @@
 # AML Forensic Detection: Graph Based Typology Parsing
 This project focuses on detecting sophisticated money laundering patterns like Cycling and Smurfing using graph traversal techniques on synthetic transaction data using Python, DuckDB, SQL, etc.
 
+## Overview
+Built a forensic engine to detect AML typologies (Cycling & Smurfing) in an 855k+ transaction dataset. Successfully reduced processing overhead by pivoting from PySpark to a custom DuckDB + DFS implementation, achieving rapid analytical inference on a single machine.
+
 ## Tech Stack and Evolution
 * Database: DuckDB for high performance analytical queries on the SAML-D dataset in the CSV format.
 
