@@ -30,26 +30,50 @@ Waterfall Cycle Chart: This visualizes the capital flow across intermediaries. I
 
 ![Cycling Waterfall Chart](./images/Cycle.png)
 
-Hover Detail Overlay: A dynamic tooltip view that reveals specific transaction details like Amounts, Senders, and Receivers when hovering over any bar in the waterfall.
-
+Hover Detail Overlay:
 ![Cycling Hover details snapshot](./images/Cycle_Hover.png)
 
-2. The Smurfing Suite (Structuring)
-Decomposition Tree: A root cause analysis tool that breaks down a "Final Receiver" account to reveal the dozens of small fragmented "Smurf" accounts feeding it via multiple payment methods in short durations. Click through values when you select a new receiver to see the total amount, duration, distinct senders, and payment methods used by senders.
+### 2. The Smurfing Suite (Structuring)
+Using DuckDB to identify Final Receiver accounts fed by dozens of fragmented "Smurf" accounts via multiple payment methods.
 
+Analysis: Root cause decomposition showing payment method distribution and transaction frequency.
+Decomposition Tree:
 ![Smurfing Analysis - Waterfall Chart](./images/Smurf.png)
 
-Smurf Hover Analysis: An investigative overlay providing the specific amounts for each branch in the decomposition tree - per sender, per payment method, etc.
-
+Smurf Hover Analysis:
 ![Smurfing Analysis - Hover Overview snapshot](./images/Smurf_Hover.png)
 
-## Dataset Credits
 
-This project utilizes the [SAML-D (Synthetic Anti-Money Laundering) dataset from Kaggle](https://www.kaggle.com/datasets/berkanoztas/synthetic-transaction-monitoring-dataset-aml/data).
+## 🚀 How to Run
+### 1. Prerequisites & Environment
+* Memory: Minimum 16 GB RAM (required for the in-memory graph construction of 9.5M rows).
+* Docker: Docker & Docker Compose installed.
+* Python Setup: This project uses uv for package management.
+CRITICAL: To avoid version headaches, ensure you have your own virtual environment (venv) active. Users must have their own compiled requirements.txt tailored to their specific system architecture/OS before attempting to run any Python logic. This is especially crucial given that I use Fedora, whose package versions may not match that of your OSs.
 
-Citation: B. Oztas, D. Cetinkaya, F. Adedoyin, M. Budka, H. Dogan and G. Aksu, "Enhancing Anti-Money Laundering: Development of a Synthetic Transaction Monitoring Dataset," 2023 IEEE International Conference on e-Business Engineering (ICEBE), Sydney, Australia, 2023, pp. 47-54, doi: 10.1109/ICEBE59045.2023.00028.
+### 2. Execution
+#### Spin up the Memgraph and Metabase containers
+`docker-compose up -d`
 
-## How to use
-1. Clone the repo
-2. Python Script: Run the data_checker.py script (if you have enough memory, aka at least 16 GB on your compute, as this DFS requires an in-memory graph of a 9.5M rows dataset) to generate the processed CSVs (They are already pre-loaded, but you can see the script in action this way).
-3. Power BI: Load the generated files into the .pbix file to refresh the Waterfall and Decomposition visuals (Refresh paths using the edit query method on each table for your local PC).
+#### Install dependencies using uv
+```
+uv pip compile requirements.in -o requirements.txt
+uv pip install -r requirements.txt
+```
+
+#### Run the scanner to process data and load into the graph
+`python data_pattern_scanner.py`
+
+### 3. Querying
+The folder /queries contains the Cypher scripts needed to:
+1. Create indices for accountID.
+2. Load data from the /data directory.
+3. Execute get_cycles.cypher to extract the forensic loops.
+
+
+## 🚧 Roadmap: 
+### Visualization Update
+Note: The current visualizations were built in Power BI (View Dashboard Here).To ensure a fully Linux-compatible, containerized experience, the visualization layer is currently being migrated to Metabase. This will allow the entire forensic suite to run on any environment via Docker without requiring a Windows-based Power BI gateway.
+
+## 📚 Dataset Credits
+Utilizes the SAML-D (Synthetic Anti-Money Laundering) dataset.Citation: B. Oztas et al., "Enhancing Anti-Money Laundering: Development of a Synthetic Transaction Monitoring Dataset," 2023 IEEE ICEBE.

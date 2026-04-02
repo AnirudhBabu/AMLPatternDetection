@@ -1,2 +1,6 @@
 SAML-D.csv
-AMLDataEnv
+AMLProject
+requirements.txt
+memgraph
+**/__pycache__/
+/.tmp

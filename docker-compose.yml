@@ -1,0 +1,41 @@
+services:
+  memgraph-init:
+    image: busybox
+    user: root
+    command: ["sh", "-c", "chown -R 101:103 /var/lib/memgraph /var/log/memgraph /data && chmod -R 777 /data"]
+    volumes:
+      - ./data:/data:z
+      - ./memgraph/lib:/var/lib/memgraph:z
+      - ./memgraph/log:/var/log/memgraph:z
+
+  memgraph:
+    image: memgraph/memgraph-mage
+    depends_on:
+      memgraph-init:
+        condition: service_completed_successfully
+    ports:
+      - "7687:7687"
+      - "7444:7444"
+    volumes:
+      - ./data:/data:z
+      - ./memgraph/lib:/var/lib/memgraph:z
+      - ./memgraph/log:/var/log/memgraph:z
+
+  lab:
+    image: memgraph/lab
+    ports:
+      - "3000:3000"
+    environment:
+      QUICK_CONNECT_MG_HOST: memgraph
+  
+  metabase:
+    image: metabase/metabase:latest
+    container_name: aml-metabase
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./metabase:/metabase-data:z
+    environment:
+      - MB_DB_TYPE=h2
+      - MB_DB_FILE=/metabase-data/metabase.db
+    restart: always
