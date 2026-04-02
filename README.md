@@ -28,6 +28,12 @@ The dashboard consists of 2 distinct investigative views designed to switch betw
 1. The Cycling Suite (Round Tripping)
 Waterfall Cycle Chart: This visualizes the capital flow across intermediaries. It tracks how money is moved through multiple hops before returning to the source to obscure investigations regarding source of funds. Most of the cycles I detected were of length 4, which I believe in part is due to my strict 20% variation limit between the amount first sent and the final amount received. A higher tolerance may account for money lost in transaction fees, but I'm sticking to this strict filter for now.
 
+Memgraph query execution and graph results visualization:
+
+https://github.com/user-attachments/assets/ab8382aa-6566-43be-b557-098877682abe
+
+
+
 ![Cycling Waterfall Chart](./images/Cycle.png)
 
 Hover Detail Overlay:
