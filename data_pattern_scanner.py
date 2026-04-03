@@ -13,23 +13,21 @@ def query_memgraph_cycles(uri="bolt://localhost:7687"):
     Uses Memgraph's built-in simple cycle detector to find structural cycles and 
     rotates them to find valid chronological money flows.
     """
-    spinner = Halo(text="Querying Memgraph for Temporal Cycles...", color="cyan", spinner="dots")
-    spinner.start()
-    
+    load_spinner = Halo(text="Loading data and indexes into Memgraoh...",
+                        color="cyan", spinner="dots")
+    cycle_spinner = Halo(text="Querying Memgraph for Temporal Cycles...",
+                         color="cyan", spinner="dots")
+    load_spinner.start()
+
     index_query = """
     CREATE INDEX ON :Account(accountID);
-
-    // Filtering for the start of your 5000+ GBP cycles
-    CREATE INDEX ON :Transaction(amount);
-    CREATE INDEX ON :Transaction(sent_currency);
-    CREATE INDEX ON :Transaction(datetime);
     """
 
     set_mode_query = """
-    SET STORAGE MODE IN_MEMORY_ANALYTICAL;
+    STORAGE MODE IN_MEMORY_ANALYTICAL;
     """
 
-    load_data_query = """"
+    load_data_query = """
     LOAD CSV FROM "/data/SAML-D.csv" WITH HEADER AS row
     MERGE (s:Account {accountID: toInteger(row.Sender_account)})
     SET s:Sender
@@ -37,7 +35,7 @@ def query_memgraph_cycles(uri="bolt://localhost:7687"):
     SET r:Receiver
 
     // Create a direct relationship instead of a node
-    CREATE (s)-[:TRANSFERRED {
+    MERGE (s)-[:TRANSFERRED {
         amount: toFloat(row.Amount),
         datetime: datetime(row.Date+"T"+row.Time),
         type: row.Laundering_type
@@ -81,13 +79,17 @@ def query_memgraph_cycles(uri="bolt://localhost:7687"):
             session.run(index_query)
             session.run(set_mode_query)
             session.run(load_data_query)
+            load_spinner.succeed(
+                "Loaded 855K nodes and 9.5M edges into Memgraph.")
+            cycle_spinner.start()
             result = session.run(cycle_query)
             records = [dict(record) for record in result]
         driver.close()
-        spinner.succeed(f"Detected {len(records)} temporal cycles via Memgraph.")
+        cycle_spinner.succeed(
+            f"Detected {len(records)} temporal cycles via Memgraph.")
         return records
     except Exception as e:
-        spinner.fail(f"Memgraph Connection Failed: {e}")
+        cycle_spinner.fail(f"Memgraph Connection Failed: {e}")
         return []
 
 
@@ -105,11 +107,11 @@ def write_memgraph_results_to_csv(records, output_filepath='./data/detected_cycl
         path = rec['account_path']
         amts = rec['amounts']
         times = rec['hoptimes']
-        
+
         for i in range(len(path)):
             # Handle Memgraph/Neo4j datetime objects or dicts
             ts = times[i]
-            
+
             flattened.append({
                 'Cycle_ID': c_id,
                 'Sender_account': path[i],
@@ -119,10 +121,11 @@ def write_memgraph_results_to_csv(records, output_filepath='./data/detected_cycl
                 'Hop_Number': i + 1,
                 'Cycle_Length': len(path)
             })
-            
+
     df = pd.DataFrame(flattened)
     df.to_csv(output_filepath, index=False)
-    print(f"✅ Successfully wrote {len(df)} transactions to '{output_filepath}'")
+    print(
+        f"✅ Successfully wrote {len(df)} transactions to '{output_filepath}'")
 
 
 def detect_smurfing_suspects(conn: duckdb.DuckDBPyConnection,
@@ -199,18 +202,26 @@ def detect_smurfing_suspects(conn: duckdb.DuckDBPyConnection,
 
     conn.execute(full_data_query)
 
-
     spinner.succeed(f"Processed data saved to {output_filepath}")
-    
-    
+
+
 if __name__ == "__main__":
+
     # 1. Dataset Setup
     data_path = Path('./data/SAML-D.csv')
+# Dynamically find the user home directory
+    home_dir = os.path.expanduser("~")
+    cache_path = os.path.join(home_dir, ".cache", "kagglehub", "datasets",
+                              "berkanoztas", "synthetic-transaction-monitoring-dataset-aml")
+
     if not data_path.is_file():
-        print("Downloading dataset...")
-        path = kg.dataset_download("berkanoztas/synthetic-transaction-monitoring-dataset-aml")
-        os.makedirs('./data', exist_ok=True)
-        shutil.move(os.path.join(path, 'SAML-D.csv'), './data/SAML-D.csv')
+        if os.path.exists(cache_path):
+            shutil.rmtree(cache_path)
+            print("Cache cleared")
+
+        path = kg.dataset_download(
+            "berkanoztas/synthetic-transaction-monitoring-dataset-aml")
+        shutil.move(os.path.join(path, 'SAML-D.csv'), './data')
 
     # 2. Cycle Detection (Memgraph)
     # This replaces the Python DFS entirely

@@ -8,6 +8,7 @@ colorama==0.4.6
     # via
     #   halo
     #   log-symbols
+    #   tqdm
 duckdb==1.5.0
     # via -r requirements.in
 halo==0.0.31
@@ -50,5 +51,7 @@ termcolor==3.3.0
     # via halo
 tqdm==4.67.3
     # via kagglehub
+tzdata==2026.1
+    # via pandas
 urllib3==2.6.3
     # via requests
