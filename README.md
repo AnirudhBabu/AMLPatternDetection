@@ -34,20 +34,19 @@ https://github.com/user-attachments/assets/ab8382aa-6566-43be-b557-098877682abe
 
 
 
-![Cycling Waterfall Chart](./images/Cycle.png)
+Memgraph query execution and graph results visualization:
 
-Hover Detail Overlay:
-![Cycling Hover details snapshot](./images/Cycle_Hover.png)
+https://github.com/user-attachments/assets/ab8382aa-6566-43be-b557-098877682abe
+
+
+
+![Cycling Funnel Chart](./images/Cycle.png)
 
 ### 2. The Smurfing Suite (Structuring)
 Using DuckDB to identify Final Receiver accounts fed by dozens of fragmented "Smurf" accounts via multiple payment methods.
 
-Analysis: Root cause decomposition showing payment method distribution and transaction frequency.
-Decomposition Tree:
-![Smurfing Analysis - Waterfall Chart](./images/Smurf.png)
-
-Smurf Hover Analysis:
-![Smurfing Analysis - Hover Overview snapshot](./images/Smurf_Hover.png)
+Scatter plot showing Duration vs Average amount per transaction for money mules:
+![Smurfing Analysis - Scatter Plot](./images/Smurf.png)
 
 
 ## 🚀 How to Run
@@ -55,11 +54,17 @@ Smurf Hover Analysis:
 * Memory: Minimum 16 GB RAM (required for the in-memory graph construction of 9.5M rows).
 * Docker: Docker & Docker Compose installed.
 * Python Setup: This project uses uv for package management.
-CRITICAL: To avoid version headaches, ensure you have your own virtual environment (venv) active. Users must have their own compiled requirements.txt tailored to their specific system architecture/OS before attempting to run any Python logic. This is especially crucial given that I use Fedora, whose package versions may not match that of your OSs.
+CRITICAL: To avoid version headaches, ensure you have your own virtual environment (venv) active. Users must have their own compiled requirements.txt tailored to their specific system architecture/OS before attempting to run any Python logic. This is especially crucial given that I use Fedora, whose package versions may not match that of your OS.
 
 ### 2. Execution
 #### Spin up the Memgraph and Metabase containers
 `docker-compose up -d`
+
+Memgraph Labs (Visual query executors) is available at [http://localhost:3000](http://localhost:3000) and Metabase at [http://localhost:3001](http://localhost:3001) in a couple of minutes after this command is run.
+
+Login to metabase using the following credentials to view the dashboard:
+Email: `guest@gusto.com`
+Password: `3tbuu8PMjMxO4Q`
 
 #### Install dependencies using uv
 ```
@@ -71,15 +76,13 @@ uv pip install -r requirements.txt
 `python data_pattern_scanner.py`
 
 ### 3. Querying
-The folder /queries contains the Cypher scripts needed to:
+The folder /queries/cypher contains the Cypher scripts needed to:
 1. Create indices for accountID.
 2. Load data from the /data directory.
 3. Execute get_cycles.cypher to extract the forensic loops.
 
+The /queries/sql subfolder contains the metabase questions that were used to build the visualizations.
 
-## 🚧 Roadmap: 
-### Visualization Update
-Note: The current visualizations were built in Power BI (View Dashboard Here).To ensure a fully Linux-compatible, containerized experience, the visualization layer is currently being migrated to Metabase. This will allow the entire forensic suite to run on any environment via Docker without requiring a Windows-based Power BI gateway.
 
 ## 📚 Dataset Credits
 Utilizes the SAML-D (Synthetic Anti-Money Laundering) dataset.Citation: B. Oztas et al., "Enhancing Anti-Money Laundering: Development of a Synthetic Transaction Monitoring Dataset," 2023 IEEE ICEBE.

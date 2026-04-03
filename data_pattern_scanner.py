@@ -15,8 +15,36 @@ def query_memgraph_cycles(uri="bolt://localhost:7687"):
     """
     spinner = Halo(text="Querying Memgraph for Temporal Cycles...", color="cyan", spinner="dots")
     spinner.start()
+    
+    index_query = """
+    CREATE INDEX ON :Account(accountID);
 
-    cypher_query = """
+    // Filtering for the start of your 5000+ GBP cycles
+    CREATE INDEX ON :Transaction(amount);
+    CREATE INDEX ON :Transaction(sent_currency);
+    CREATE INDEX ON :Transaction(datetime);
+    """
+
+    set_mode_query = """
+    SET STORAGE MODE IN_MEMORY_ANALYTICAL;
+    """
+
+    load_data_query = """"
+    LOAD CSV FROM "/data/SAML-D.csv" WITH HEADER AS row
+    MERGE (s:Account {accountID: toInteger(row.Sender_account)})
+    SET s:Sender
+    MERGE (r:Account {accountID: toInteger(row.Receiver_account)})
+    SET r:Receiver
+
+    // Create a direct relationship instead of a node
+    CREATE (s)-[:TRANSFERRED {
+        amount: toFloat(row.Amount),
+        datetime: datetime(row.Date+"T"+row.Time),
+        type: row.Laundering_type
+    }]->(r);
+    """
+
+    cycle_query = """
     CALL cycles.get() YIELD cycle_id, node
     WITH cycle_id, collect(node) AS cycle_nodes
     WHERE size(cycle_nodes) >= 3
@@ -50,7 +78,10 @@ def query_memgraph_cycles(uri="bolt://localhost:7687"):
     try:
         driver = GraphDatabase.driver(uri, auth=("", ""))
         with driver.session() as session:
-            result = session.run(cypher_query)
+            session.run(index_query)
+            session.run(set_mode_query)
+            session.run(load_data_query)
+            result = session.run(cycle_query)
             records = [dict(record) for record in result]
         driver.close()
         spinner.succeed(f"Detected {len(records)} temporal cycles via Memgraph.")
@@ -130,11 +161,10 @@ def detect_smurfing_suspects(conn: duckdb.DuckDBPyConnection,
     # then self-join to get per transaction data, and finally save it to the desired location
     full_data_query = \
         f"""
-        COPY 
-        (
+        COPY (
             SELECT 
                 origin.Receiver_account,
-                agg.Readable_Duration AS Duration,
+                (DATE_DIFF('minute', agg.start_time, agg.end_time) / 1440.0) AS Duration_Days,
                 origin.Date,
                 origin.Time,
                 agg.Total_amount,
@@ -146,24 +176,24 @@ def detect_smurfing_suspects(conn: duckdb.DuckDBPyConnection,
                 origin.Laundering_type,
                 origin.Payment_type
             FROM '{source_file}' AS origin
-            JOIN (SELECT Receiver_account, 
-                            sum(Amount) AS Total_amount,
-                            count(DISTINCT Sender_account) AS Sender_count,
-                            date_diff('minute', MIN(Date + Time), MAX(Date + Time)) AS Duration,
-                            CASE 
-                                WHEN date_diff('minute', MIN(Date + Time), MAX(Date + Time)) >= 1440 
-                                    THEN date_diff('day', MIN(Date + Time), MAX(Date + Time)) || ' days'
-                                WHEN date_diff('minute', MIN(Date + Time), MAX(Date + Time)) >= 60 
-                                    THEN date_diff('hour', MIN(Date + Time), MAX(Date + Time)) || ' hours'
-                                ELSE date_diff('minute', MIN(Date + Time), MAX(Date + Time)) || ' minutes'
-                            END AS Readable_duration
-                    FROM '{source_file}'
-                    WHERE Payment_currency = '{preferred_sender_currency}' AND Received_currency = '{preferred_receiver_currency}'
-                    GROUP BY Receiver_account
-                        HAVING Sender_count > {target_minimum_distinct_senders} AND Duration <= {target_minutes_duration} AND Total_amount > {target_total_threshold}) AS agg
-                ON origin.Receiver_account = agg.Receiver_account
-            WHERE Payment_currency = '{preferred_sender_currency}' AND Received_currency = '{preferred_receiver_currency}'
-            ORDER BY origin.Receiver_account ASC, agg.Total_amount ASC, agg.Duration ASC
+            INNER JOIN (
+                SELECT 
+                    Receiver_account, 
+                    SUM(Amount) AS Total_amount,
+                    COUNT(DISTINCT Sender_account) AS Sender_count,
+                    MIN(CAST(Date || ' ' || Time AS TIMESTAMP)) AS start_time,
+                    MAX(CAST(Date || ' ' || Time AS TIMESTAMP)) AS end_time
+                FROM '{source_file}'
+                WHERE Payment_currency = '{preferred_sender_currency}' 
+                AND Received_currency = '{preferred_receiver_currency}'
+                GROUP BY Receiver_account
+                HAVING Sender_count > {target_minimum_distinct_senders} 
+                AND DATE_DIFF('minute', start_time, end_time) <= {target_minutes_duration} 
+                AND Total_amount > {target_total_threshold}
+            ) AS agg ON origin.Receiver_account = agg.Receiver_account
+            WHERE origin.Payment_currency = '{preferred_sender_currency}' 
+            AND origin.Received_currency = '{preferred_receiver_currency}'
+            ORDER BY origin.Receiver_account ASC, agg.Total_amount DESC
         ) TO '{output_filepath}' (HEADER, DELIMITER ',');
         """
 

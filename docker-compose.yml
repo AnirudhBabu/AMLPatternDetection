@@ -35,6 +35,7 @@ services:
       - "3001:3000"
     volumes:
       - ./metabase:/metabase-data:z
+      - ./data:/data:z
     environment:
       - MB_DB_TYPE=h2
       - MB_DB_FILE=/metabase-data/metabase.db
