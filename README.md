@@ -40,6 +40,9 @@ Using DuckDB to identify Final Receiver accounts fed by dozens of fragmented "Sm
 Scatter plot showing Duration vs Average amount per transaction for money mules:
 ![Smurfing Analysis - Scatter Plot](./images/Smurf.png)
 
+### 3. Dashboard in Metabase containing both questions:
+
+https://github.com/user-attachments/assets/90fe813c-edae-4237-9e36-2da064178e4b
 
 ## 🚀 How to Run
 ### 1. Prerequisites & Environment
