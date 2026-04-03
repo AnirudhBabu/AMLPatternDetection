@@ -49,6 +49,7 @@ https://github.com/user-attachments/assets/90fe813c-edae-4237-9e36-2da064178e4b
 * Memory: Minimum 16 GB RAM (required for the in-memory graph construction of 9.5M rows).
 * Docker: Docker & Docker Compose installed.
 * Python Setup: This project uses uv for package management.
+
 CRITICAL: To avoid version headaches, ensure you have your own virtual environment (venv) active. Users must have their own compiled requirements.txt tailored to their specific system architecture/OS before attempting to run any Python logic. This is especially crucial given that I use Fedora, whose package versions may not match that of your OS.
 
 ### 2. Execution
@@ -58,7 +59,9 @@ CRITICAL: To avoid version headaches, ensure you have your own virtual environme
 Memgraph Labs (Visual query executors) is available at [http://localhost:3000](http://localhost:3000) and Metabase at [http://localhost:3001](http://localhost:3001) in a couple of minutes after this command is run.
 
 Login to metabase using the following credentials to view the dashboard:
+
 Email: `guest@gusto.com`
+
 Password: `3tbuu8PMjMxO4Q`
 
 #### Install dependencies using uv
