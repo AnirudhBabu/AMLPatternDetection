@@ -9,7 +9,7 @@ Built a forensic engine to detect AML typologies (Cycling & Smurfing) in an 855k
 
 * Engine: In-memory graph construction and a Depth First Search (DFS) algorithm for the 'Cycling' AML typology.
 
-* Visualization: Power BI [Dashboard here](https://app.fabric.microsoft.com/view?r=eyJrIjoiNWJkMGRjMmMtNmRiMy00ZGZmLWJiNzktZDA3ZTg5YzQwMTM4IiwidCI6IjcxYjQwNGVhLTQ0Y2ItNDM1YS1hMTRkLWQzM2FhZTM3NmFkYyIsImMiOjl9&pageName=1e0175171e72c8ca18e9).
+* Visualization: Metabase
 
 ## Development Journey
 Initially, I attempted to process this huge 9M+ rows dataset using PySpark. However, I found that the overhead of Spark’s distributed architecture was not the right tool for the specific recursive nature of "Cycle Detection" on this dataset. And, I was not prepared for how much memory Spark can consume locally 😅
@@ -31,14 +31,6 @@ Waterfall Cycle Chart: This visualizes the capital flow across intermediaries. I
 Memgraph query execution and graph results visualization:
 
 https://github.com/user-attachments/assets/ab8382aa-6566-43be-b557-098877682abe
-
-
-
-Memgraph query execution and graph results visualization:
-
-https://github.com/user-attachments/assets/ab8382aa-6566-43be-b557-098877682abe
-
-
 
 ![Cycling Funnel Chart](./images/Cycle.png)
 
@@ -76,12 +68,12 @@ uv pip install -r requirements.txt
 `python data_pattern_scanner.py`
 
 ### 3. Querying
-The folder /queries/cypher contains the Cypher scripts needed to:
+The folder `/queries/cypher` contains the Cypher scripts needed to:
 1. Create indices for accountID.
 2. Load data from the /data directory.
 3. Execute get_cycles.cypher to extract the forensic loops.
 
-The /queries/sql subfolder contains the metabase questions that were used to build the visualizations.
+The `/queries/sql` subfolder contains the metabase questions that were used to build the visualizations.
 
 
 ## 📚 Dataset Credits
