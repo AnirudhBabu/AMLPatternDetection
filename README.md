@@ -2,7 +2,7 @@
 This project focuses on detecting sophisticated money laundering patterns like Cycling and Smurfing using graph traversal techniques on synthetic transaction data using Memgraph, Python, DuckDB, SQL, Metabase, etc.
 
 ## Overview
-Built a forensic engine to detect AML typologies (Cycling & Smurfing) in an 9M+ transaction dataset. Successfully reduced processing overhead by pivoting from PySpark to a custom DuckDB + DFS implementation, achieving rapid analytical inference on a single machine. This was further improved upon by  switching to Memgraph, an in-memory graph database, bringing the cyxle detection time down to seconds from minutes.
+Built a forensic engine to detect AML typologies (Cycling & Smurfing) in a 9M+ transaction dataset. Successfully reduced processing overhead by pivoting from PySpark to a custom DuckDB + DFS implementation, achieving rapid analytical inference on a single machine. This was further improved upon by  switching to Memgraph, an in-memory graph database, bringing the cyxle detection time down to seconds from minutes.
 
 ## Tech Stack and Evolution
 * Databases: DuckDB for high performance analytical queries on the SAML-D dataset in the CSV format, and Memgraph for complex pattern detection like Cycling.
@@ -24,11 +24,13 @@ This is when I discovered Memgraph, and my Cypher knowledge was instantly transf
 
 The Smurfing analysis was unified within a DuckDB query highlighting the versatility and speed that DuckDB offers.
 
-Forensic Visualizations
+## Forensic Visualizations
+
 The dashboard consists of 2 distinct investigative views designed to switch between an analysis of Smurfing and Cycling typologies.
 
-1. The Cycling Suite (Round Tripping)
-Funnel Cycle Chart: This visualizes the capital flow across intermediaries. It tracks how money is moved through multiple hops before returning to the source to obscure investigations regarding source of funds. Every intermediary takes a cut, and transaction fees must be eating into the transfer cycle as well, spanning a duration of 1-3 weeks usually.
+### 1. The Cycling Suite (Round Tripping)
+
+**Funnel Cycle Chart:** This visualizes the capital flow across intermediaries. It tracks how money is moved through multiple hops before returning to the source to obscure investigations regarding source of funds. Every intermediary takes a cut, and transaction fees must be eating into the transfer cycle as well, spanning a duration of 1-3 weeks usually.
 
 Memgraph query execution and graph results visualization:
 
@@ -56,7 +58,7 @@ https://github.com/user-attachments/assets/90fe813c-edae-4237-9e36-2da064178e4b
 
 ### 2. Execution
 #### Spin up the Memgraph and Metabase containers
-`docker-compose up -d`
+`docker compose up -d`
 
 Memgraph Labs (Visual query executors) is available at [http://localhost:3000](http://localhost:3000) and Metabase at [http://localhost:3001](http://localhost:3001) in a couple of minutes after this command is run.
 
