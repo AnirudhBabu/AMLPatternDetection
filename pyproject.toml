@@ -1,0 +1,38 @@
+[project]
+name = "aml-pattern-detection"
+version = "0.9.0"
+description = "Graph + SQL forensic engine for AML typologies (cycling, smurfing) on the SAML-D dataset"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=1.1",
+    "halo>=0.0.31",
+    "kagglehub>=0.3",
+    "neo4j>=5.20",
+    "pandas>=2.1",
+]
+
+[project.scripts]
+aml = "aml.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["aml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+markers = ["memgraph: needs a running Memgraph + MAGE (set MEMGRAPH_URI)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
