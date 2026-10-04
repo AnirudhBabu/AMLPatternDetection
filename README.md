@@ -115,7 +115,7 @@ The first time you open Metabase it shows its Welcome screen: create your own ad
 
 ```
 uv sync
-uv run aml run-all --with-metabase --admin-email you@example.com
+uv run aml run-all --with-metabase --admin-email you@example.com --create-admin
 ```
 
 `--with-metabase` asks for your Metabase admin password up front and checks it against Metabase before the pipeline starts, then builds the dashboard at the end. On a fresh Metabase, add `--create-admin` to create that admin account. Leave it off and run `uv run aml metabase --admin-email you@example.com` later if Metabase isn't up yet.
