@@ -1,6 +1,39 @@
+# --- Python and uv ---------------------------------------------------------------
+# `uv sync` / `uv run` create the virtual environment in .venv/. uv.lock IS committed.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+*.egg-info/
+
+# --- Data: downloaded or generated, never committed ---------------------------
+# SAML-D.csv (from `aml fetch-data`), data/prepared/ (from `aml prepare`) and every result
+# the pipeline writes. data/.gitkeep keeps the folder itself, so Docker never creates it
+# as root on a fresh clone.
+data/*
+!data/.gitkeep
 SAML-D.csv
+
+# --- Docker volumes ---------------------------------------------------------------
+# Memgraph's storage and logs, and Metabase's app database (rebuilt by `aml metabase`).
+memgraph/
+metabase/
+
+# --- Secrets ------------------------------------------------------------------------
+# For anyone keeping MB_ADMIN_* / MB_VIEWER_* in a file (`uv run --env-file .env ...`).
+.env
+.env.*
+!.env.example
+
+# --- Misc ---------------------------------------------------------------------------
 AMLProject
-requirements.txt
-memgraph
-**/__pycache__/
 /.tmp
+.DS_Store
+.idea/
+.vscode/

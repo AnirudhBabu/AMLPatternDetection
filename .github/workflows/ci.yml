@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: uv sync
+      - name: Lint
+        run: uv run ruff check .
+      - name: Unit tests (DuckDB + SQLite)
+        run: uv run pytest -m "not memgraph"
+
+  memgraph:
+    runs-on: ubuntu-latest
+    services:
+      memgraph:
+        image: memgraph/memgraph-mage:latest
+        ports:
+          - 7687:7687
+    env:
+      MEMGRAPH_URI: bolt://localhost:7687
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: uv sync
+      - name: Cypher against a live Memgraph + MAGE
+        run: uv run pytest -m memgraph -v

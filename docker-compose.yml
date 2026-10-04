@@ -1,15 +1,22 @@
+# Image tags can be pinned without editing this file, e.g. in a .env file next to it:
+#   MEMGRAPH_TAG=...  MEMGRAPH_LAB_TAG=...  METABASE_TAG=...
+# `docker compose images` shows the versions you are running today.
 services:
   memgraph-init:
     image: busybox
     user: root
-    command: ["sh", "-c", "chown -R 101:103 /var/lib/memgraph /var/log/memgraph /data && chmod -R 777 /data"]
+    # Memgraph (uid 101) has to own its storage and log folders. data/ isn't mounted into
+    # Memgraph at all (`aml load-graph` streams the data over Bolt), so nothing touches it.
+    command: ["sh", "-c", "chown -R 101:103 /var/lib/memgraph /var/log/memgraph"]
     volumes:
-      - ./data:/data:z
       - ./memgraph/lib:/var/lib/memgraph:z
       - ./memgraph/log:/var/log/memgraph:z
 
   memgraph:
-    image: memgraph/memgraph-mage
+    image: memgraph/memgraph-mage:${MEMGRAPH_TAG:-latest}
+    # The default limit is 600 s, which cycles.get() on the full graph can exceed on slower
+    # machines.
+    command: ["--query-execution-timeout-sec=3600"]
     depends_on:
       memgraph-init:
         condition: service_completed_successfully
@@ -17,19 +24,21 @@ services:
       - "7687:7687"
       - "7444:7444"
     volumes:
-      - ./data:/data:z
       - ./memgraph/lib:/var/lib/memgraph:z
       - ./memgraph/log:/var/log/memgraph:z
 
   lab:
-    image: memgraph/lab
+    image: memgraph/lab:${MEMGRAPH_LAB_TAG:-latest}
     ports:
       - "3000:3000"
     environment:
       QUICK_CONNECT_MG_HOST: memgraph
-  
+
   metabase:
-    image: metabase/metabase:latest
+    # Metabase keeps its own app database (users, questions, dashboards) in metabase/.
+    # `uv run aml metabase` builds all of it through the API, so none of it is committed.
+    # data/ is mounted so Metabase can read data/aml_results.sqlite.
+    image: metabase/metabase:${METABASE_TAG:-latest}
     container_name: aml-metabase
     ports:
       - "3001:3000"
